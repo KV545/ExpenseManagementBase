@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import { User } from '../types/expense';
 
 interface LoginResponse {
@@ -5,111 +6,124 @@ interface LoginResponse {
   token: string;
 }
 
-interface SignupRequest {
-  name: string;
-  email: string;
-  password: string;
-  role: 'employee' | 'manager';
-}
-
-// Mock users for demo - in production this would be a real database
-const mockUsers: (User & { password: string })[] = [
-  {
-    id: '1',
-    name: 'John Smith',
-    email: 'john@company.com',
-    role: 'employee',
-    department: 'Sales',
-    password: 'password123'
-  },
-  {
-    id: '2',
-    name: 'Sarah Johnson',
-    email: 'sarah@company.com',
-    role: 'manager',
-    department: 'Sales',
-    password: 'password123'
-  },
-  {
-    id: '3',
-    name: 'Mike Davis',
-    email: 'mike@company.com',
-    role: 'employee',
-    department: 'Marketing',
-    password: 'password123'
-  }
-];
-
 class AuthService {
-  private generateToken(): string {
-    return `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
   async login(email: string, password: string): Promise<LoginResponse> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    const user = mockUsers.find(u => u.email === email && u.password === password);
-    
-    if (!user) {
-      throw new Error('Invalid email or password');
+    if (authError) {
+      throw new Error(authError.message);
     }
 
-    const { password: _, ...userWithoutPassword } = user;
-    
+    if (!authData.user) {
+      throw new Error('Login failed');
+    }
+
+    // Get user profile from users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (userError || !userData) {
+      throw new Error('Failed to fetch user profile');
+    }
+
+    const user: User = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      department: userData.department || 'General'
+    };
+
     return {
-      user: userWithoutPassword,
-      token: this.generateToken()
+      user,
+      token: authData.session?.access_token || ''
     };
   }
 
   async signup(name: string, email: string, password: string, role: 'employee' | 'manager'): Promise<LoginResponse> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // First, sign up the user with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-    // Check if user already exists
-    const existingUser = mockUsers.find(u => u.email === email);
-    if (existingUser) {
-      throw new Error('User with this email already exists');
+    if (authError) {
+      throw new Error(authError.message);
     }
 
-    // Create new user
-    const newUser: User & { password: string } = {
-      id: `user_${Date.now()}`,
-      name,
-      email,
-      role,
-      department: role === 'manager' ? 'Management' : 'General',
-      password
+    if (!authData.user) {
+      throw new Error('Signup failed');
+    }
+
+    // Create user profile in users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .insert({
+        id: authData.user.id,
+        name,
+        email,
+        role,
+        department: role === 'manager' ? 'Management' : 'General'
+      })
+      .select()
+      .single();
+
+    if (userError || !userData) {
+      throw new Error('Failed to create user profile');
+    }
+
+    const user: User = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      department: userData.department || 'General'
     };
 
-    mockUsers.push(newUser);
-
-    const { password: _, ...userWithoutPassword } = newUser;
-
     return {
-      user: userWithoutPassword,
-      token: this.generateToken()
+      user,
+      token: authData.session?.access_token || ''
     };
   }
 
   async getCurrentUser(): Promise<User> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    const { data: authData, error: authError } = await supabase.auth.getUser();
 
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      throw new Error('No authentication token');
+    if (authError || !authData.user) {
+      throw new Error('Not authenticated');
     }
 
-    // In a real app, you'd validate the token with your backend
-    // For demo, we'll return the first manager user
-    const { password: _, ...user } = mockUsers[1];
-    return user;
+    // Get user profile from users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (userError || !userData) {
+      throw new Error('Failed to fetch user profile');
+    }
+
+    return {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      department: userData.department || 'General'
+    };
   }
 
-  logout(): void {
-    localStorage.removeItem('authToken');
+  async logout(): Promise<void> {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      throw new Error(error.message);
+    }
   }
 }
 

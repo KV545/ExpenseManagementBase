@@ -3,6 +3,7 @@ import { Upload, X, FileText, Image, File, Loader, CheckCircle } from 'lucide-re
 import { Expense, Attachment } from '../../types/expense';
 import { expenseCategories } from '../../services/mockData';
 import { apiService } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ExpenseFormProps {
   onSubmit: (expense: Omit<Expense, 'id' | 'submittedAt'>) => Promise<void>;
@@ -10,6 +11,7 @@ interface ExpenseFormProps {
 }
 
 export const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSubmit, loading = false }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     amount: '',
@@ -82,31 +84,41 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSubmit, loading = fa
       return;
     }
 
-    const expenseId = `temp_${Date.now()}`;
+    if (!user) {
+      alert('You must be logged in to create an expense');
+      return;
+    }
+
     const processedAttachments: Attachment[] = [];
 
     // Process attachments
     for (const file of attachments) {
-      const attachment: Attachment = {
-        id: `att_${Date.now()}_${Math.random()}`,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        url: URL.createObjectURL(file), // In production, this would be uploaded to storage
-        uploadedAt: new Date().toISOString()
-      };
-      processedAttachments.push(attachment);
+      try {
+        const { url, attachmentId } = await apiService.uploadFile(file, 'temp');
+        
+        const attachment: Attachment = {
+          id: attachmentId,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: url,
+          uploadedAt: new Date().toISOString()
+        };
+        processedAttachments.push(attachment);
 
-      // Send to ABBYY Vantage for processing
-      if (file.type.includes('pdf') || file.type.includes('image')) {
-        await apiService.sendToAbbyy({
-          expenseId,
-          attachmentId: attachment.id,
-          fileUrl: attachment.url,
-          fileName: file.name,
-          fileType: file.type
-        });
-        attachment.abbyySentAt = new Date().toISOString();
+        // Send to ABBYY Vantage for processing
+        if (file.type.includes('pdf') || file.type.includes('image')) {
+          await apiService.sendToAbbyy({
+            expenseId: 'temp',
+            attachmentId: attachment.id,
+            fileUrl: attachment.url,
+            fileName: file.name,
+            fileType: file.type
+          });
+          attachment.abbyySentAt = new Date().toISOString();
+        }
+      } catch (error) {
+        console.error('Failed to process attachment:', error);
       }
     }
 
@@ -118,7 +130,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSubmit, loading = fa
       date: formData.date,
       description: formData.description,
       status: 'submitted',
-      submittedBy: 'Current User', // In production, get from auth context
+      submittedBy: user.name,
       attachments: processedAttachments,
       processingStatus: processedAttachments.length > 0 ? 'pending' : 'completed'
     };

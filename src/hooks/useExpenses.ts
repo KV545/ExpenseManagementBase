@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Expense } from '../types/expense';
-import { mockExpenses } from '../services/mockData';
 import { apiService } from '../services/api';
 
 export const useExpenses = () => {
@@ -15,9 +14,8 @@ export const useExpenses = () => {
   const loadExpenses = async () => {
     try {
       setLoading(true);
-      // For demo purposes, use mock data
-      // In production, this would be: const data = await apiService.getExpenses();
-      setExpenses(mockExpenses);
+      const data = await apiService.getExpenses();
+      setExpenses(data);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load expenses');
@@ -28,11 +26,7 @@ export const useExpenses = () => {
 
   const createExpense = async (expenseData: Omit<Expense, 'id' | 'submittedAt'>) => {
     try {
-      const newExpense = {
-        ...expenseData,
-        id: `exp_${Date.now()}`,
-        submittedAt: new Date().toISOString()
-      };
+      const newExpense = await apiService.createExpense(expenseData);
       setExpenses(prev => [newExpense, ...prev]);
       return newExpense;
     } catch (err) {
@@ -43,7 +37,7 @@ export const useExpenses = () => {
 
   const updateExpense = async (id: string, updates: Partial<Expense>) => {
     try {
-      const updatedExpense = { ...expenses.find(e => e.id === id)!, ...updates };
+      const updatedExpense = await apiService.updateExpense(id, updates);
       setExpenses(prev => prev.map(e => e.id === id ? updatedExpense : e));
       return updatedExpense;
     } catch (err) {
