@@ -29,7 +29,39 @@ class AuthService {
       .single();
 
     if (userError || !userData) {
-      throw new Error('Failed to fetch user profile');
+      // If user profile doesn't exist, create a default one
+      const defaultUser = {
+        id: authData.user.id,
+        name: authData.user.email?.split('@')[0] || 'User',
+        email: authData.user.email || '',
+        role: 'employee' as const,
+        department: 'General'
+      };
+
+      // Try to insert the user profile
+      const { data: newUserData, error: insertError } = await supabase
+        .from('users')
+        .insert(defaultUser)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Failed to create user profile:', insertError);
+        throw new Error('Failed to create user profile');
+      }
+
+      const user: User = {
+        id: newUserData.id,
+        name: newUserData.name,
+        email: newUserData.email,
+        role: newUserData.role,
+        department: newUserData.department || 'General'
+      };
+
+      return {
+        user,
+        token: authData.session?.access_token || ''
+      };
     }
 
     const user: User = {
@@ -107,7 +139,34 @@ class AuthService {
       .single();
 
     if (userError || !userData) {
-      throw new Error('Failed to fetch user profile');
+      // If user profile doesn't exist, create a default one
+      const defaultUser = {
+        id: authData.user.id,
+        name: authData.user.email?.split('@')[0] || 'User',
+        email: authData.user.email || '',
+        role: 'employee' as const,
+        department: 'General'
+      };
+
+      // Try to insert the user profile
+      const { data: newUserData, error: insertError } = await supabase
+        .from('users')
+        .insert(defaultUser)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Failed to create user profile:', insertError);
+        throw new Error('Failed to fetch user profile');
+      }
+
+      return {
+        id: newUserData.id,
+        name: newUserData.name,
+        email: newUserData.email,
+        role: newUserData.role,
+        department: newUserData.department || 'General'
+      };
     }
 
     return {
