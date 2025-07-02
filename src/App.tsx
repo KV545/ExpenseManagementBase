@@ -17,17 +17,11 @@ const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState('expenses');
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   
-  const { 
-    expenses, 
-    loading: expensesLoading, 
-    error, 
-    createExpense, 
-    approveExpense, 
-    rejectExpense 
-  } = useExpenses();
+  console.log('AppContent render:', { user: !!user, isAuthenticated, authLoading });
 
   // Show loading while auth is initializing
   if (authLoading) {
+    console.log('Showing auth loading...');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -39,9 +33,30 @@ const AppContent: React.FC = () => {
   }
 
   // Show auth page if not authenticated
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated) {
+    console.log('Showing auth page...');
     return <AuthPage />;
   }
+
+  console.log('Showing main app...');
+  return <MainApp user={user!} activeTab={activeTab} setActiveTab={setActiveTab} selectedExpense={selectedExpense} setSelectedExpense={setSelectedExpense} />;
+};
+
+const MainApp: React.FC<{
+  user: any;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  selectedExpense: Expense | null;
+  setSelectedExpense: (expense: Expense | null) => void;
+}> = ({ user, activeTab, setActiveTab, selectedExpense, setSelectedExpense }) => {
+  const { 
+    expenses, 
+    loading: expensesLoading, 
+    error, 
+    createExpense, 
+    approveExpense, 
+    rejectExpense 
+  } = useExpenses();
 
   const handleCreateExpense = async (expenseData: Omit<Expense, 'id' | 'submittedAt'>) => {
     try {
@@ -100,62 +115,60 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        
-        <Navigation
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          userRole={user.role}
-          pendingApprovals={pendingApprovals}
-        />
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      
+      <Navigation
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        userRole={user.role}
+        pendingApprovals={pendingApprovals}
+      />
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {activeTab === 'create' && (
-            <ExpenseForm 
-              onSubmit={handleCreateExpense}
-              loading={expensesLoading}
-            />
-          )}
-
-          {activeTab === 'expenses' && (
-            <ExpenseList
-              expenses={expenses}
-              onExpenseClick={handleExpenseClick}
-              userRole={user.role}
-            />
-          )}
-
-          {activeTab === 'approvals' && (
-            <ExpenseList
-              expenses={expenses.filter(e => e.status === 'submitted')}
-              onExpenseClick={handleExpenseClick}
-              userRole={user.role}
-            />
-          )}
-
-          {activeTab === 'analytics' && (
-            <Analytics expenses={expenses} />
-          )}
-
-          {activeTab === 'processing' && (
-            <ProcessingStatus expenses={expenses} />
-          )}
-        </main>
-
-        {selectedExpense && (
-          <ExpenseDetail
-            expense={selectedExpense}
-            onClose={() => setSelectedExpense(null)}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            userRole={user.role}
-            canApprove={user.role === 'manager' || user.role === 'admin'}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'create' && (
+          <ExpenseForm 
+            onSubmit={handleCreateExpense}
+            loading={expensesLoading}
           />
         )}
-      </div>
-    </ProtectedRoute>
+
+        {activeTab === 'expenses' && (
+          <ExpenseList
+            expenses={expenses}
+            onExpenseClick={handleExpenseClick}
+            userRole={user.role}
+          />
+        )}
+
+        {activeTab === 'approvals' && (
+          <ExpenseList
+            expenses={expenses.filter(e => e.status === 'submitted')}
+            onExpenseClick={handleExpenseClick}
+            userRole={user.role}
+          />
+        )}
+
+        {activeTab === 'analytics' && (
+          <Analytics expenses={expenses} />
+        )}
+
+        {activeTab === 'processing' && (
+          <ProcessingStatus expenses={expenses} />
+        )}
+      </main>
+
+      {selectedExpense && (
+        <ExpenseDetail
+          expense={selectedExpense}
+          onClose={() => setSelectedExpense(null)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          userRole={user.role}
+          canApprove={user.role === 'manager' || user.role === 'admin'}
+        />
+      )}
+    </div>
   );
 };
 
