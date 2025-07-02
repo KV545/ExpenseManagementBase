@@ -13,21 +13,33 @@ import { useExpenses } from './hooks/useExpenses';
 import { Expense } from './types/expense';
 
 const AppContent: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('expenses');
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   
   const { 
     expenses, 
-    loading, 
+    loading: expensesLoading, 
     error, 
     createExpense, 
     approveExpense, 
     rejectExpense 
   } = useExpenses();
 
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show auth page if not authenticated
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <AuthPage />;
   }
 
@@ -66,7 +78,7 @@ const AppContent: React.FC = () => {
 
   const pendingApprovals = expenses.filter(e => e.status === 'submitted').length;
 
-  if (loading) {
+  if (expensesLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -95,7 +107,7 @@ const AppContent: React.FC = () => {
         <Navigation
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          userRole={user!.role}
+          userRole={user.role}
           pendingApprovals={pendingApprovals}
         />
 
@@ -103,7 +115,7 @@ const AppContent: React.FC = () => {
           {activeTab === 'create' && (
             <ExpenseForm 
               onSubmit={handleCreateExpense}
-              loading={loading}
+              loading={expensesLoading}
             />
           )}
 
@@ -111,7 +123,7 @@ const AppContent: React.FC = () => {
             <ExpenseList
               expenses={expenses}
               onExpenseClick={handleExpenseClick}
-              userRole={user!.role}
+              userRole={user.role}
             />
           )}
 
@@ -119,7 +131,7 @@ const AppContent: React.FC = () => {
             <ExpenseList
               expenses={expenses.filter(e => e.status === 'submitted')}
               onExpenseClick={handleExpenseClick}
-              userRole={user!.role}
+              userRole={user.role}
             />
           )}
 
@@ -138,8 +150,8 @@ const AppContent: React.FC = () => {
             onClose={() => setSelectedExpense(null)}
             onApprove={handleApprove}
             onReject={handleReject}
-            userRole={user!.role}
-            canApprove={user!.role === 'manager' || user!.role === 'admin'}
+            userRole={user.role}
+            canApprove={user.role === 'manager' || user.role === 'admin'}
           />
         )}
       </div>

@@ -8,18 +8,23 @@ interface LoginResponse {
 
 class AuthService {
   async login(email: string, password: string): Promise<LoginResponse> {
+    console.log('Attempting login for:', email);
+    
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (authError) {
+      console.error('Auth error:', authError);
       throw new Error(authError.message);
     }
 
     if (!authData.user) {
-      throw new Error('Login failed');
+      throw new Error('Login failed - no user data');
     }
+
+    console.log('Auth successful, fetching user profile...');
 
     // Get user profile from users table
     const { data: userData, error: userError } = await supabase
@@ -29,6 +34,8 @@ class AuthService {
       .single();
 
     if (userError || !userData) {
+      console.log('User profile not found, creating default profile...');
+      
       // If user profile doesn't exist, create a default one
       const defaultUser = {
         id: authData.user.id,
@@ -58,6 +65,8 @@ class AuthService {
         department: newUserData.department || 'General'
       };
 
+      console.log('Created new user profile:', user);
+
       return {
         user,
         token: authData.session?.access_token || ''
@@ -72,6 +81,8 @@ class AuthService {
       department: userData.department || 'General'
     };
 
+    console.log('Retrieved existing user profile:', user);
+
     return {
       user,
       token: authData.session?.access_token || ''
@@ -79,6 +90,8 @@ class AuthService {
   }
 
   async signup(name: string, email: string, password: string, role: 'employee' | 'manager'): Promise<LoginResponse> {
+    console.log('Attempting signup for:', email);
+    
     // First, sign up the user with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
@@ -86,12 +99,15 @@ class AuthService {
     });
 
     if (authError) {
+      console.error('Signup auth error:', authError);
       throw new Error(authError.message);
     }
 
     if (!authData.user) {
-      throw new Error('Signup failed');
+      throw new Error('Signup failed - no user data');
     }
+
+    console.log('Auth signup successful, creating user profile...');
 
     // Create user profile in users table
     const { data: userData, error: userError } = await supabase
@@ -107,6 +123,7 @@ class AuthService {
       .single();
 
     if (userError || !userData) {
+      console.error('Failed to create user profile:', userError);
       throw new Error('Failed to create user profile');
     }
 
@@ -117,6 +134,8 @@ class AuthService {
       role: userData.role,
       department: userData.department || 'General'
     };
+
+    console.log('Created user profile:', user);
 
     return {
       user,
@@ -139,6 +158,8 @@ class AuthService {
       .single();
 
     if (userError || !userData) {
+      console.log('User profile not found during getCurrentUser, creating default...');
+      
       // If user profile doesn't exist, create a default one
       const defaultUser = {
         id: authData.user.id,

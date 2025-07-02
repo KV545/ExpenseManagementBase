@@ -32,11 +32,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode, isSignup }) 
 
     try {
       if (isSignup) {
+        console.log('Attempting signup...');
         await signup(formData.name, formData.email, formData.password, formData.role);
+        console.log('Signup completed successfully');
       } else {
+        console.log('Attempting login...');
         await login(formData.email, formData.password);
+        console.log('Login completed successfully');
       }
     } catch (err) {
+      console.error('Authentication error:', err);
       setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setLoading(false);

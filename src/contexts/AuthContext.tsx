@@ -34,10 +34,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check if user is already logged in
     const initAuth = async () => {
       try {
-        const userData = await authService.getCurrentUser();
-        setUser(userData);
+        setLoading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const userData = await authService.getCurrentUser();
+          setUser(userData);
+        }
       } catch (error) {
         console.error('Auth initialization error:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -48,17 +54,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        
         if (event === 'SIGNED_IN' && session?.user) {
           try {
+            setLoading(true);
             const userData = await authService.getCurrentUser();
             setUser(userData);
+            console.log('User data loaded:', userData);
           } catch (error) {
             console.error('Error fetching user data:', error);
+            setUser(null);
+          } finally {
+            setLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
@@ -67,30 +80,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      setLoading(true);
       const { user: userData } = await authService.login(email, password);
       setUser(userData);
+      console.log('Login successful, user set:', userData);
     } catch (error) {
+      setLoading(false);
       throw error;
     }
   };
 
   const signup = async (name: string, email: string, password: string, role: 'employee' | 'manager') => {
     try {
+      setLoading(true);
       const { user: userData } = await authService.signup(name, email, password, role);
       setUser(userData);
+      console.log('Signup successful, user set:', userData);
     } catch (error) {
+      setLoading(false);
       throw error;
     }
   };
 
   const logout = async () => {
     try {
+      setLoading(true);
       await authService.logout();
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
       // Force logout even if there's an error
       setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,7 +122,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     signup,
     logout,
-    isAuthenticated: !!user
+    isAuthenticated: !!user && !loading
   };
 
   return (
